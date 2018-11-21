@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2009 secunet Security Networks AG
  * Copyright (C) 2009 Steffen Klassert <steffen.klassert@secunet.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,

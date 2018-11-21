@@ -2462,7 +2462,6 @@ static inline void memalloc_noio_restore(unsigned int flags)
 #define PFA_SPEC_IB_DISABLE		6	/* Indirect branch speculation restricted */
 #define PFA_SPEC_IB_FORCE_DISABLE	7	/* Indirect branch speculation permanently restricted */
 
-
 #define TASK_PFA_TEST(name, func)					\
 	static inline bool task_##func(struct task_struct *p)		\
 	{ return test_bit(PFA_##name, &p->atomic_flags); }
