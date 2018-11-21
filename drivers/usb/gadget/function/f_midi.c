@@ -15,6 +15,7 @@
  * and drivers/usb/gadget/midi.c,
  *   Copyright (C) 2006 Thumtronics Pty Ltd.
  *   Ben Williamson <ben.williamson@greyinnovation.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * Licensed under the GPL-2 or later.
  */

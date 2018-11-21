@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1645,6 +1646,8 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.release = subsys_device_release;
 	subsys->notif_state = -1;
 	subsys->desc->sysmon_pid = -1;
+
+	subsys->restart_level = 1;
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
 
