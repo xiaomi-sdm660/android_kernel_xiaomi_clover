@@ -344,42 +344,6 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pm660l_torch0: qcom,torch_0 {
-				label = "torch";
-				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
-				qcom,default-led-trigger = "torch0_trigger";
-				qcom,id = <0>;
-				qcom,current-ma = <300>;
-				qcom,ires-ua = <12500>;
-				qcom,hdrm-voltage-mv = <325>;
-				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-			};
-
-			pm660l_torch1: qcom,torch_1 {
-				label = "torch";
-				qcom,led-name = "led:torch_1";
-				qcom,max-current = <500>;
-				qcom,default-led-trigger = "torch1_trigger";
-				qcom,id = <1>;
-				qcom,current-ma = <300>;
-				qcom,ires-ua = <12500>;
-				qcom,hdrm-voltage-mv = <325>;
-				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-			};
-
-			pm660l_torch2: qcom,torch_2 {
-				label = "torch";
-				qcom,led-name = "led:torch_2";
-				qcom,max-current = <500>;
-				qcom,default-led-trigger = "torch2_trigger";
-				qcom,id = <2>;
-				qcom,current-ma = <300>;
-				qcom,ires-ua = <12500>;
-				qcom,hdrm-voltage-mv = <325>;
-				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-			};
-
 			pm660l_switch0: qcom,led_switch_0 {
 				label = "switch";
 				qcom,led-name = "led:switch_0";
