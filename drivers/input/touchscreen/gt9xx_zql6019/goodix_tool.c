@@ -202,7 +202,7 @@ s32 init_wr_node(struct i2c_client *client)
 	return SUCCESS;
 }
 
-static void uninit_wr_node(void)
+void uninit_wr_node(void)
 {
 	kfree(cmd_head.data);
 	cmd_head.data = NULL;
@@ -290,7 +290,7 @@ static u8 comfirm(void)
 	return SUCCESS;
 }
 
-static ssize_t goodix_tool_write(struct file *filp, const char __user *buff,
+ssize_t goodix_tool_write(struct file *filp, const char __user *buff,
 			  size_t len, loff_t *off)
 {
 	s32 ret = 0;
@@ -444,7 +444,7 @@ static ssize_t goodix_tool_write(struct file *filp, const char __user *buff,
  * Output:
  *	Return read length.
  ********************************************************/
-static ssize_t goodix_tool_read(struct file *file, char __user *page,
+ssize_t goodix_tool_read(struct file *file, char __user *page,
 			 size_t size, loff_t *ppos)
 {
 	s32 ret = 0;

@@ -44,22 +44,12 @@
 #ifdef CONFIG_HQ_HARDWARE_INFO
 #include <linux/hardware_info.h>
 #endif
-
-/*****************************************************************************
-* Global variable or extern global variabls/functions
-*****************************************************************************/
-static struct fts_ts_data *fts_data;
-
-#include "focaltech_i2c.c"
-#if FTS_GESTURE_EN
-#include "focaltech_gesture.c"
-#endif
 #include <linux/proc_fs.h>
 
 #if FTS_LOCK_DOWN_INFO_EN
 char tp_lockdown_info[30];
 #endif
-static u8 fts_chipid = 0;
+u8 fts_chipid = 0;
 #ifdef CONFIG_PM
 static int boot_into_ffbm;
 #endif
@@ -77,11 +67,22 @@ static int boot_into_ffbm;
 #endif
 
 /*****************************************************************************
+* Global variable or extern global variabls/functions
+*****************************************************************************/
+struct fts_ts_data *fts_data;
+
+/*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
-static inline void fts_release_all_finger(void);
-static inline int fts_ts_suspend(struct device *dev);
-static inline int fts_ts_resume(struct device *dev);
+static void fts_release_all_finger(void);
+static int fts_ts_suspend(struct device *dev);
+static int fts_ts_resume(struct device *dev);
+
+#if defined(CONFIG_HQ_HARDWARE_INFO)
+char fts_tpdname[60] = {0};
+char fts_color[20] = {0};
+#endif
+
 
 /*****************************************************************************
 *  Name: fts_wait_tp_to_valid
@@ -91,7 +92,7 @@ static inline int fts_ts_resume(struct device *dev);
 *  Output:
 *  Return: return 0 if tp valid, otherwise return error code
 *****************************************************************************/
-static inline int fts_wait_tp_to_valid(struct i2c_client *client)
+int fts_wait_tp_to_valid(struct i2c_client *client)
 {
 	int ret = 0;
 	int cnt = 0;
@@ -242,7 +243,7 @@ static int fts_get_ic_information(struct fts_ts_data *ts_data)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline void fts_tp_state_recovery(struct i2c_client *client)
+void fts_tp_state_recovery(struct i2c_client *client)
 {
 	FTS_FUNC_ENTER();
 	/* wait tp stable */
@@ -264,7 +265,7 @@ static inline void fts_tp_state_recovery(struct i2c_client *client)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline int fts_reset_proc(int hdelayms)
+int fts_reset_proc(int hdelayms)
 {
 	FTS_FUNC_ENTER();
 	gpio_direction_output(fts_data->pdata->reset_gpio, 0);
@@ -285,7 +286,7 @@ static inline int fts_reset_proc(int hdelayms)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline void fts_irq_disable(void)
+void fts_irq_disable(void)
 {
 	unsigned long irqflags;
 
@@ -308,7 +309,7 @@ static inline void fts_irq_disable(void)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline void fts_irq_enable(void)
+void fts_irq_enable(void)
 {
 	unsigned long irqflags = 0;
 
@@ -562,7 +563,7 @@ static void fts_show_touch_buffer(u8 *buf, int point_num)
  *  Output:
  *  Return:
  *****************************************************************************/
-static inline void fts_release_all_finger(void)
+static void fts_release_all_finger(void)
 {
 	struct input_dev *input_dev = fts_data->input_dev;
 #if FTS_MT_PROTOCOL_B_EN
@@ -570,6 +571,7 @@ static inline void fts_release_all_finger(void)
 #endif
 
 	FTS_FUNC_ENTER();
+	mutex_lock(&fts_data->report_mutex);
 #if FTS_MT_PROTOCOL_B_EN
 	for (finger_count = 0; finger_count < fts_data->pdata->max_touch_number; finger_count++) {
 		input_mt_slot(input_dev, finger_count);
@@ -581,6 +583,7 @@ static inline void fts_release_all_finger(void)
 	input_report_key(input_dev, BTN_TOUCH, 0);
 	input_sync(input_dev);
 
+	mutex_unlock(&fts_data->report_mutex);
 	FTS_FUNC_EXIT();
 }
 
@@ -591,7 +594,7 @@ static inline void fts_release_all_finger(void)
  * Output:
  * Return: return 0 if success
  ***********************************************************************/
-static inline int fts_input_report_key(struct fts_ts_data *data, int index)
+static int fts_input_report_key(struct fts_ts_data *data, int index)
 {
 	u32 ik;
 	int id = data->events[index].id;
@@ -623,16 +626,23 @@ static inline int fts_input_report_key(struct fts_ts_data *data, int index)
 }
 
 #if FTS_MT_PROTOCOL_B_EN
-static inline int fts_input_report_b(struct fts_ts_data *data)
+static int fts_input_report_b(struct fts_ts_data *data)
 {
-	int i;
+	int i = 0;
+	int uppoint = 0;
 	int touchs = 0;
 	bool va_reported = false;
 	u32 max_touch_num = data->pdata->max_touch_number;
+	u32 key_y_coor = data->pdata->key_y_coord;
 	struct ts_event *events = data->events;
 
 	for (i = 0; i < data->touch_point; i++) {
-		if (unlikely(events[i].id >= max_touch_num))
+		if (KEY_EN(data) && TOUCH_IS_KEY(events[i].y, key_y_coor)) {
+			fts_input_report_key(data, i);
+			continue;
+		}
+
+		if (events[i].id >= max_touch_num)
 			break;
 
 		va_reported = true;
@@ -656,15 +666,23 @@ static inline int fts_input_report_b(struct fts_ts_data *data)
 
 			touchs |= BIT(events[i].id);
 			data->touchs |= BIT(events[i].id);
+		if (FTS_TOUCH_DOWN == events[i].flag)
+		{
+			FTS_DEBUG("[B]P%d(%d, %d)[p:%d,tm:%d] DOWN!", events[i].id, events[i].x,
+					  events[i].y, events[i].p, events[i].area);
+			}
 		} else {
+			uppoint++;
 			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
 			data->touchs &= ~BIT(events[i].id);
+			FTS_DEBUG("[B]P%d UP!", events[i].id);
 		}
 	}
 
 	if (unlikely(data->touchs ^ touchs)) {
 		for (i = 0; i < max_touch_num; i++)  {
 			if (BIT(i) & (data->touchs ^ touchs)) {
+				FTS_DEBUG("[B]P%d UP!", i);
 				va_reported = true;
 				input_mt_slot(data->input_dev, i);
 				input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
@@ -676,6 +694,7 @@ static inline int fts_input_report_b(struct fts_ts_data *data)
 	if (va_reported) {
 		/* touchs==0, there's no point but key */
 		if (EVENT_NO_DOWN(data) || (!touchs)) {
+			FTS_DEBUG("[B]Points All Up!");
 			input_report_key(data->input_dev, BTN_TOUCH, 0);
 		} else {
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
@@ -683,12 +702,11 @@ static inline int fts_input_report_b(struct fts_ts_data *data)
 	}
 
 	input_sync(data->input_dev);
-
 	return 0;
 }
 
 #else
-static inline int fts_input_report_a(struct fts_ts_data *data)
+static int fts_input_report_a(struct fts_ts_data *data)
 {
 	int i = 0;
 	int touchs = 0;
@@ -755,7 +773,7 @@ static inline int fts_input_report_a(struct fts_ts_data *data)
 *  Output:
 *  Return: return 0 if succuss
 *****************************************************************************/
-static inline int fts_read_touchdata(struct fts_ts_data *data)
+static int fts_read_touchdata(struct fts_ts_data *data)
 {
 	int ret = 0;
 	int i = 0;
@@ -764,6 +782,7 @@ static inline int fts_read_touchdata(struct fts_ts_data *data)
 	struct ts_event *events = data->events;
 	int max_touch_num = data->pdata->max_touch_number;
 	u8 *buf = data->point_buf;
+	struct i2c_client *client = data->client;
 
 #if FTS_GESTURE_EN
 	if (0 == fts_gesture_readdata(data)) {
@@ -783,13 +802,22 @@ static inline int fts_read_touchdata(struct fts_ts_data *data)
 	buf[0] = 0x00;
 
 	ret = fts_i2c_read(data->client, buf, 1, buf, data->pnt_buf_size);
-	if (!likely(ret)) {
+	if (ret < 0) {
 		FTS_ERROR("read touchdata failed, ret:%d", ret);
 		return ret;
 	}
 	data->point_num = buf[FTS_TOUCH_POINT_NUM] & 0x0F;
 
-	if (unlikely(data->point_num > max_touch_num)) {
+	if (data->ic_info.is_incell) {
+		if ((data->point_num == 0x0F) && (buf[1] == 0xFF) && (buf[2] == 0xFF)
+			&& (buf[3] == 0xFF) && (buf[4] == 0xFF) && (buf[5] == 0xFF) && (buf[6] == 0xFF)) {
+			FTS_INFO("touch buff is 0xff, need recovery state");
+			fts_tp_state_recovery(client);
+			return -EIO;
+		}
+	}
+
+	if (data->point_num > max_touch_num) {
 		FTS_INFO("invalid point_num(%d)", data->point_num);
 		return -EIO;
 	}
@@ -802,9 +830,9 @@ static inline int fts_read_touchdata(struct fts_ts_data *data)
 		base = FTS_ONE_TCH_LEN * i;
 
 		pointid = (buf[FTS_TOUCH_ID_POS + base]) >> 4;
-		if (unlikely(pointid >= FTS_MAX_ID))
+		if (pointid >= FTS_MAX_ID)
 			break;
-		else if (unlikely(pointid >= max_touch_num)) {
+		else if (pointid >= max_touch_num) {
 			FTS_ERROR("ID(%d) beyond max_touch_number", pointid);
 			return -EINVAL;
 		}
@@ -820,13 +848,12 @@ static inline int fts_read_touchdata(struct fts_ts_data *data)
 		events[i].area = buf[FTS_TOUCH_AREA_POS + base] >> 4;
 		events[i].p =  buf[FTS_TOUCH_PRE_POS + base];
 
-		if (unlikely(EVENT_DOWN(events[i].flag) && (data->point_num == 0))) {
+		if (EVENT_DOWN(events[i].flag) && (data->point_num == 0)) {
 			FTS_INFO("abnormal touch data from fw");
 			return -EIO;
 		}
 	}
-
-	if (unlikely(data->touch_point == 0)) {
+	if (data->touch_point == 0) {
 		FTS_INFO("no touch point information");
 		return -EIO;
 	}
@@ -841,7 +868,7 @@ static inline int fts_read_touchdata(struct fts_ts_data *data)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline void fts_report_event(struct fts_ts_data *data)
+static void fts_report_event(struct fts_ts_data *data)
 {
 #if FTS_MT_PROTOCOL_B_EN
 	fts_input_report_b(data);
@@ -859,14 +886,24 @@ static inline void fts_report_event(struct fts_ts_data *data)
 *****************************************************************************/
 static irqreturn_t fts_ts_interrupt(int irq, void *data)
 {
+	int ret = 0;
 	struct fts_ts_data *ts_data = (struct fts_ts_data *)data;
+
+	if (!ts_data) {
+		FTS_ERROR("[INTR]: Invalid fts_ts_data");
+		return IRQ_HANDLED;
+	}
 
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_set_intr(1);
 #endif
 
-	if (!fts_read_touchdata(ts_data))
+	ret = fts_read_touchdata(ts_data);
+	if (ret == 0) {
+		mutex_lock(&ts_data->report_mutex);
 		fts_report_event(ts_data);
+		mutex_unlock(&ts_data->report_mutex);
+	}
 
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_set_intr(0);
@@ -1384,7 +1421,7 @@ int fts_LockDownInfo_get_from_boot(struct i2c_client *client, char *pProjectCode
 }
 #endif
 
-#if 0
+#ifdef CONFIG_HQ_HARDWARE_INFO
 /*******************************************************
 Function:
 	Read fw version and config version .
@@ -1526,6 +1563,7 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	}
 
 	spin_lock_init(&ts_data->irq_lock);
+	mutex_init(&ts_data->report_mutex);
 
 	ret = fts_input_init(ts_data);
 	if (ret) {
@@ -1767,7 +1805,7 @@ static int fts_ts_remove(struct i2c_client *client)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline int fts_ts_suspend(struct device *dev)
+static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
@@ -1813,7 +1851,7 @@ static inline int fts_ts_suspend(struct device *dev)
 *  Output:
 *  Return:
 *****************************************************************************/
-static inline int fts_ts_resume(struct device *dev)
+static int fts_ts_resume(struct device *dev)
 {
 	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
 

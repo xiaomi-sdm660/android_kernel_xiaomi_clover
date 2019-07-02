@@ -34,6 +34,11 @@
 ************************************************************************/
 
 /*****************************************************************************
+* Included header files
+*****************************************************************************/
+#include "focaltech_core.h"
+
+/*****************************************************************************
 * Private constant and macro definitions using #define
 *****************************************************************************/
 #define I2C_RETRY_NUMBER        3
@@ -65,8 +70,7 @@ static DEFINE_MUTEX(i2c_rw_access);
 * Output: get data in the 3rd buf
 * Return: fail <0
 ***********************************************************************/
-static inline int fts_i2c_read(struct i2c_client *client, char *writebuf,
-			       int writelen, char *readbuf, int readlen)
+int fts_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char *readbuf, int readlen)
 {
 	int ret = 0;
 	int i = 0;
@@ -77,47 +81,38 @@ static inline int fts_i2c_read(struct i2c_client *client, char *writebuf,
 		if (writelen > 0) {
 			struct i2c_msg msgs[] = {
 				{
-				 .addr = client->addr,
-				 .flags = 0,
-				 .len = writelen,
-				 .buf = writebuf,
-				 },
+					.addr = client->addr,
+					.flags = 0,
+					.len = writelen,
+					.buf = writebuf,
+				},
 				{
-				 .addr = client->addr,
-				 .flags = I2C_M_RD,
-				 .len = readlen,
-				 .buf = readbuf,
-				 },
+					.addr = client->addr,
+					.flags = I2C_M_RD,
+					.len = readlen,
+					.buf = readbuf,
+				},
 			};
-
-			if (unlikely(fts_data->suspended)) {
-				for (i = 0; i < I2C_RETRY_NUMBER; i++) {
-					ret = i2c_transfer(client->adapter, msgs, 2);
-					if (ret < 0) {
-						FTS_ERROR
-						    ("[IIC]: i2c_transfer(write) error, ret=%d!!",
-						     ret);
-					} else
-						break;
-				}
-			} else {
+			for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 				ret = i2c_transfer(client->adapter, msgs, 2);
+				if (ret < 0) {
+					FTS_ERROR("[IIC]: i2c_transfer(write) error, ret=%d!!", ret);
+				} else
+					break;
 			}
 		} else {
 			struct i2c_msg msgs[] = {
 				{
-				 .addr = client->addr,
-				 .flags = I2C_M_RD,
-				 .len = readlen,
-				 .buf = readbuf,
-				 },
+					.addr = client->addr,
+					.flags = I2C_M_RD,
+					.len = readlen,
+					.buf = readbuf,
+				},
 			};
 			for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 				ret = i2c_transfer(client->adapter, msgs, 1);
 				if (ret < 0) {
-					FTS_ERROR
-					    ("[IIC]: i2c_transfer(read) error, ret=%d!!",
-					     ret);
+					FTS_ERROR("[IIC]: i2c_transfer(read) error, ret=%d!!", ret);
 				} else
 					break;
 			}
@@ -135,8 +130,7 @@ static inline int fts_i2c_read(struct i2c_client *client, char *writebuf,
 * Output: no
 * Return: fail <0
 ***********************************************************************/
-static inline int fts_i2c_write(struct i2c_client *client, char *writebuf,
-				int writelen)
+int fts_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret = 0;
 	int i = 0;
@@ -145,24 +139,18 @@ static inline int fts_i2c_write(struct i2c_client *client, char *writebuf,
 	if (writelen > 0) {
 		struct i2c_msg msgs[] = {
 			{
-			 .addr = client->addr,
-			 .flags = 0,
-			 .len = writelen,
-			 .buf = writebuf,
-			 },
+				.addr = client->addr,
+				.flags = 0,
+				.len = writelen,
+				.buf = writebuf,
+			},
 		};
-		if (unlikely(fts_data->suspended)) {
-			for (i = 0; i < I2C_RETRY_NUMBER; i++) {
-				ret = i2c_transfer(client->adapter, msgs, 1);
-				if (ret < 0) {
-					FTS_ERROR
-					    ("%s: i2c_transfer(write) error, ret=%d",
-					     __func__, ret);
-				} else
-					break;
-			}
-		} else {
+		for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 			ret = i2c_transfer(client->adapter, msgs, 1);
+			if (ret < 0) {
+				FTS_ERROR("%s: i2c_transfer(write) error, ret=%d", __func__, ret);
+			} else
+				break;
 		}
 	}
 	mutex_unlock(&i2c_rw_access);
@@ -177,10 +165,9 @@ static inline int fts_i2c_write(struct i2c_client *client, char *writebuf,
 * Output: no
 * Return: fail <0
 ***********************************************************************/
-static inline int fts_i2c_write_reg(struct i2c_client *client, u8 regaddr,
-				    u8 regvalue)
+int fts_i2c_write_reg(struct i2c_client *client, u8 regaddr, u8 regvalue)
 {
-	u8 buf[2] = { 0 };
+	u8 buf[2] = {0};
 
 	buf[0] = regaddr;
 	buf[1] = regvalue;
@@ -194,8 +181,7 @@ static inline int fts_i2c_write_reg(struct i2c_client *client, u8 regaddr,
 * Output: get reg value
 * Return: fail <0
 ***********************************************************************/
-static inline int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr,
-				   u8 * regvalue)
+int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr, u8 *regvalue)
 {
 	return fts_i2c_read(client, &regaddr, 1, regvalue, 1);
 }
@@ -203,10 +189,10 @@ static inline int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr,
 /************************************************************************
 * HID to standard I2C
 ***********************************************************************/
-static void fts_i2c_hid2std(struct i2c_client *client)
+void fts_i2c_hid2std(struct i2c_client *client)
 {
 	int ret = 0;
-	u8 buf[3] = { 0xeb, 0xaa, 0x09 };
+	u8 buf[3] = {0xeb, 0xaa, 0x09};
 
 	ret = fts_i2c_write(client, buf, 3);
 	if (ret < 0)
@@ -217,11 +203,40 @@ static void fts_i2c_hid2std(struct i2c_client *client)
 		ret = fts_i2c_read(client, NULL, 0, buf, 3);
 		if (ret < 0)
 			FTS_ERROR("hid2std cmd read fail");
-		else if ((0xeb == buf[0]) && (0xaa == buf[1])
-			 && (0x08 == buf[2])) {
+		else if ((0xeb == buf[0]) && (0xaa == buf[1]) && (0x08 == buf[2])) {
 			FTS_DEBUG("hidi2c change to stdi2c successful");
 		} else {
 			FTS_ERROR("hidi2c change to stdi2c fail");
 		}
 	}
 }
+
+/************************************************************************
+* Name: fts_i2c_init
+* Brief: fts i2c init
+* Input:
+* Output:
+* Return:
+***********************************************************************/
+int fts_i2c_init(void)
+{
+	FTS_FUNC_ENTER();
+
+	FTS_FUNC_EXIT();
+	return 0;
+}
+/************************************************************************
+* Name: fts_i2c_exit
+* Brief: fts i2c exit
+* Input:
+* Output:
+* Return:
+***********************************************************************/
+int fts_i2c_exit(void)
+{
+	FTS_FUNC_ENTER();
+
+	FTS_FUNC_EXIT();
+	return 0;
+}
+
