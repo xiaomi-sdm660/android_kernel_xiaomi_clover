@@ -121,10 +121,17 @@ static struct jeita_fcc_cfg jeita_fcc_config = {
 	.hysteresis	= 10, /* 1degC hysteresis */
 	.fcc_cfg	= {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
+#ifdef CONFIG_XIAOMI_CLOVER
+		{0,		50,		600000},
+		{51,		150,		900000},
+		{151,		450,		2000000},
+		{451,		600,		1000000},
+#else
 		{0,		100,		600000},
 		{101,		200,		2000000},
 		{201,		450,		3000000},
 		{451,		550,		600000},
+#endif
 	},
 };
 
@@ -134,9 +141,15 @@ static struct jeita_fv_cfg jeita_fv_config = {
 	.hysteresis	= 10, /* 1degC hysteresis */
 	.fv_cfg		= {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
+#ifdef CONFIG_XIAOMI_CLOVER
+		{0,		100,		4400000},
+		{101,		450,		4400000},
+		{451,		600,		4100000},
+#else
 		{0,		100,		4200000},
 		{101,		450,		4400000},
 		{451,		550,		4200000},
+#endif
 	},
 };
 
