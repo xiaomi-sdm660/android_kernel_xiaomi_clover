@@ -214,7 +214,7 @@
 //				qcom,max-current = <12>;
 				qcom,max-current = <2>;
 				qcom,default-state = "off";
-				linux,name = "red";
+				linux,name = "white";
 //				qcom,start-idx = <0>;
 //				qcom,idx-len = <22>;
 				qcom,start-idx = <1>;
